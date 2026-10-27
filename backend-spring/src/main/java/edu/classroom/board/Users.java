@@ -66,4 +66,4 @@ public class Users {
   }
 }
 
-// 로그인 요청 -> Users.verigy(): 사용자 정보를 찾고 비밀번호를 검증 -> AuthService.issueToken(): 검증된 사용자에게 JWT 발급 -> 로그인 응답: 사용자 정보와 JWT 전달
+// 로그인 요청 -> Users.verify(): 사용자 정보를 찾고 비밀번호를 검증 -> AuthService.issueToken(): 검증된 사용자에게 JWT 발급 -> 로그인 응답: 사용자 정보와 JWT 전달

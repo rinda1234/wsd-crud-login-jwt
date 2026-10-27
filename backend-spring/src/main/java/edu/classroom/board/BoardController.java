@@ -79,9 +79,9 @@ public class BoardController {
   @PostMapping("/auth/login")
   public Object login(@RequestBody Map<String, Object> body) {
     var input = fields(body, Map.of("email", 254, "password", 128));
-    var user = users.verify(input.get("email"), input.get("password"));
-    if (user == null) throw new ApiError(401, "INVALID_CREDENTIALS", "이메일 또는 비밀번호를 확인하세요.");
-    return Map.of("accessToken", auth.issueToken(user), "expiresIn", ttl, "user", user);
+    var user = users.verify(input.get("email"), input.get("password")); // 계정과 비밀번호 확인 
+    if (user == null) throw new ApiError(401, "INVALID_CREDENTIALS", "이메일 또는 비밀번호를 확인하세요."); // 검증에 실패하면 오류 발생
+    return Map.of("accessToken", auth.issueToken(user), "expiresIn", ttl, "user", user); // 성공 시 토큰 발급
   }
 
   // 현재 사용자 확인: 현재 요청을 보낸 사용자가 누구인지 확인
