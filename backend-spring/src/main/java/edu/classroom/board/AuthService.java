@@ -96,11 +96,44 @@ public class AuthService {
     if(header == null || !header.startsWith("Bearer ")) // Bearer 뒤에 공백하나와 JWT 문자열을 붙이므로
       throw new ApiError(401, "TOKEN_REQUIRED", "Bearer 형식 오류");
 
-    return 1L;
+    // Bearer 뒤에 있는 토큰 문자열 추출
+    String token = header.substring(7);// Bearer asdfasfawefasd... 앞의 7글자 날림.
+    if(token.isEmpty())
+      throw new ApiError(401, "TOKEN_REQUIRED", "토큰 누락");
+    
+    // JWT 검증
+    try {
+      // jwt 서명 및 클레임 검증
+      var jws = Jwts.parser().verifyWith(key).requireIssuer(issuer)
+          .requireAudience(audience).build().parseSignedClaims(token);
+      var claims = jws.getPayload();
+
+      // 허용 알고리즘 및 만료시간 확인 
+      if (!"HS256".equals(jws.getHeader().getAlgorithm()) || claims.getExpiration() == null)
+        throw new IllegalArgumentException();
+
+      // 사용자 id 확인 
+      String sub = claims.getSubject();
+
+      if (sub == null || !sub.matches("[1-9][0-9]*")) throw new IllegalArgumentException();
+
+      // 
+      var userID = Long.parseLong(sub);
+
+      if (users.find(userID) == null) throw new IllegalArgumentException();
+
+      return userID;
+
+    } catch (ExpiredJwtException e) {
+      throw new ApiError(401, "TOKEN_EXPIRED", "토큰이 만료");
+    } catch (JwtException | IllegalArgumentException e) {
+      throw new ApiError(401, "INVALID_TOKEN", "유효하지 않은 토큰");
+    }
   }
 
   // 요청한 사용자와 게시글 작성자가 같은 사람인지 확인하는 역할
   public void assertOwner(long userId, long authorId) {
     // TODO BE-03: 다른 작성자이면 403 FORBIDDEN. 현재는 검사하지 않습니다.
+    if(userId != authorId) throw new ApiError( 403, "FORBIDDEN", "유효한 ID의 글이 존재하지 않음");
   }
 }
