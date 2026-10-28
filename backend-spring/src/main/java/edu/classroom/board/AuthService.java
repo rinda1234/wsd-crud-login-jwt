@@ -29,7 +29,6 @@ import java.time.Instant;
 import java.util.*;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 
 // 게시판의 인증과 권환확인에 필요한 핵심 기능을 담당한다.
 // 전처ㅔ적인 흐름: 로그인 요청: ID, PW 제출 -> issueToken(): 로그인 성공 시 JWT 발급 -> 게시글 수정/삭제 요청: HTTP 요청에 JWT 포함 -> currentUserID() 토큰 검증 및 사용자 ID 확인 ->  assertOwner(): 게시글 작성자와 비교하여 권한 확인 
@@ -125,15 +124,15 @@ public class AuthService {
       return userID;
 
     } catch (ExpiredJwtException e) {
-      throw new ApiError(401, "TOKEN_EXPIRED", "토큰이 만료");
+      throw new ApiError(401, "TOKEN_EXPIRED", "정상 서명의 토큰이 만료됨");
     } catch (JwtException | IllegalArgumentException e) {
-      throw new ApiError(401, "INVALID_TOKEN", "유효하지 않은 토큰");
+      throw new ApiError(401, "INVALID_TOKEN", "변조·서명·클레임 오류·없는 사용자");
     }
   }
 
   // 요청한 사용자와 게시글 작성자가 같은 사람인지 확인하는 역할
   public void assertOwner(long userId, long authorId) {
     // TODO BE-03: 다른 작성자이면 403 FORBIDDEN. 현재는 검사하지 않습니다.
-    if(userId != authorId) throw new ApiError( 403, "FORBIDDEN", "유효한 ID의 글이 존재하지 않음");
+    if(userId != authorId) throw new ApiError( 403, "FORBIDDEN", "인증한 사용자가 다른 사람 글을 변경");
   }
 }

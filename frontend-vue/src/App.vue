@@ -14,14 +14,55 @@ const email = ref("alice@class.test"),
 const refresh = async () => {
   posts.value = await api.list();
 };
+// 요청시작
 async function run(action, success) {
-  busy.value = true;
+  busy.value = true; // 중복요청방지
   try {
-    await action();
-    message.value = success;
-  } catch (e) {
-    message.value = e.message;
-  } finally {
+    await action();// API 요청 실행
+    message.value = success;// 성공
+  } catch (e) {// 실패
+    if(e.status === 400){
+      message.value = e.message || "입력값을 확인해 주세요.";
+      // 입력값은 유지
+    }
+    else if(e.status === 401){
+      // 로그인 상태 해제
+      user.value = null;
+      if(e.code === "INVALID_CREDENTIALS"){
+        message.value = "이메일 또는 비밀번호가 올바르지 않습니다.";
+      }
+      else if(e.code === "TOKEN_REQUIRED"){
+        message.value = "로그인이 필요합니다. 다시 로그인해 주세요.";
+      }
+      else if(e.code === "INVALID_TOKEN"){
+        message.value = "인증 정보가 올바르지 않습니다. 다시 로그인해 주세요.";
+      }
+      else if(e.code === "TOKEN_EXPIRED"){
+        message.value = e.message || "로그인이 만료되었습니다. 다시 로그인해 주세요.";
+      }
+    }
+    else if(e.status === 403){
+      // 권한 오류: 로그인 상태는 유지
+      message.value = "이 작업을 수행할 권한이 없습니다.";
+    }
+    else if(e.status === 404){
+      // 게시글이 없으면 상세 화면을 비우고 목록 갱신
+      message.value = "요청한 게시글을 찾을 수 없습니다.";
+      selected.value = null;
+      editing.value = null;
+
+      try{
+        await refresh();
+      } catch{
+        //목록 갱신 실패는 별도로 성공 처리하지 않음
+      }
+      
+    }
+    else {//위에서 처리하지 않은 별도의 오류
+      message.value = e.message || "요청 처리 중 오류가 발생했습니다.";
+    }
+    
+  } finally {//마무리, 로그인  상태 갱신, busy 해제
     user.value = getSession().user;
     busy.value = false;
   }
@@ -71,22 +112,23 @@ function me() {
 <template>
   <main>
     <header>
-      <span class="eyebrow">WEB SERVICE DESIGN · STARTER</span>
-      <h1>우리의 기록</h1>
+      <span class="eyebrow">TODAY'S SPENDING DIARY</span>
+      <h1>💸 오늘의 거지방</h1>
       <p class="muted">
-        나만의 주제를 정하고, 로그인과 작성자 권한을 연결해 보세요.
+        오늘 쓴 돈을 솔직하게 고백하고, 내일은 조금 더 아껴 보자.
       </p>
     </header>
     <p class="banner">
-      시작 코드: 인증 미완성 · 글쓰기는 데모 작성자 Alice로 처리됩니다. 인증과
-      권한 검사를 완성한 뒤 안내 문구를 수정하세요.
+      🪙 소비는 자유지만 통장은 솔직합니다.
+      오늘 무엇에 돈을 썼는지 기록하고 나의 소비 습관을 돌아보세요.
+      본인이 작성한 게시글만 수정하거나 삭제할 수 있습니다.
     </p>
     <div role="status" class="message">{{ message }}</div>
     <div class="grid">
       <aside>
         <section class="card">
-          <h2>로그인</h2>
-          <p>{{ user ? `${user.name}님 로그인 중` : "로그아웃 상태" }}</p>
+          <h2>🔑 거지방 입장</h2>
+          <p>{{ user ? `${user.name}님, 오늘도 절약해 봐요!` : "로그인하고 소비 일기를 남겨 보세요." }}</p>
           <form
             @submit.prevent="
               run(() => login(email, password), '로그인했습니다.')
@@ -114,11 +156,15 @@ function me() {
           </button>
         </section>
         <section class="card">
-          <h2>{{ editing ? "게시글 수정" : "새 글 작성" }}</h2>
+          <h2>{{ editing ? "✏️ 소비 고백 수정" : "💸 오늘의 소비 고백" }}</h2>
           <form @submit.prevent="save">
-            <label>제목<input maxlength="100" v-model="title" required /></label
-            ><label
-              >내용<textarea maxlength="5000" v-model="content" required />
+            <label>
+              무엇에 돈을 썼어?
+              <input maxlength="15000" v-model="title" required />
+            </label>
+            <label>
+              소비 이유와 반성문
+              <textarea maxlength="5000" v-model="content" required></textarea>
             </label>
             <div class="actions">
               <button :disabled="busy">
@@ -133,9 +179,9 @@ function me() {
       <div>
         <section class="card">
           <h2>
-            게시글 목록 <small>{{ posts.length }}개</small>
+            📒 거지들의 소비 일기 <small>{{ posts.length }}개</small>
           </h2>
-          <p v-if="!posts.length">첫 번째 기록을 남겨 보세요.</p>
+          <p v-if="!posts.length">아직 소비 고백이 없어요. 첫 기록을 남겨 보세요!</p>
           <article class="post" v-for="p in posts" :key="p.id">
             <button
               class="post-title"
@@ -158,7 +204,7 @@ function me() {
           </article>
         </section>
         <section class="card">
-          <h2>게시글 상세</h2>
+          <h2>🧾 소비 고백 상세</h2>
           <template v-if="selected"
             ><h3>{{ selected.title }}</h3>
             <p class="content">{{ selected.content }}</p>
